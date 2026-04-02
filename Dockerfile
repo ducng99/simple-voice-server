@@ -7,6 +7,6 @@ RUN apt-get update && apt-get install -y espeak-ng
 COPY . .
 
 RUN --mount=type=cache,target=/root/.cache/pip \
-    uv sync
+    uv sync --no-dev
 
 CMD ["uv", "run", "main.py"]
