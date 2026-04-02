@@ -78,7 +78,7 @@ safetensors==0.7.0
 scikit-learn==1.8.0
 scipy==1.17.1
 segments==2.4.0
-setuptools==70.2.0
+setuptools==78.1.1
 shellingham==1.5.4
 six==1.17.0
 smart-open==7.5.1
