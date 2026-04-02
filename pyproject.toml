@@ -11,3 +11,8 @@ dependencies = [
     "soundfile>=0.13.1",
     "transformers[torch]>=5.5.0",
 ]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.15.9",
+]
