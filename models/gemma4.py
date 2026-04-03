@@ -7,7 +7,6 @@ import torch
 from transformers import (
     AutoModelForMultimodalLM,
     AutoProcessor,
-    BitsAndBytesConfig,
     TextIteratorStreamer,
 )
 
@@ -25,7 +24,6 @@ class Gemma4(STTModel, LLMModel):
         self._model = AutoModelForMultimodalLM.from_pretrained(
             MODEL_ID,
             dtype=torch.float16,
-            quantization_config=BitsAndBytesConfig(load_in_8bit=True),
             device_map="auto",
         )
         self._model.eval()
