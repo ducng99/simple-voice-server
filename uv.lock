@@ -2379,7 +2379,7 @@ wheels = [
 
 [[package]]
 name = "voice-openai-server"
-version = "0.1.12"
+version = "0.1.14"
 source = { virtual = "." }
 dependencies = [
     { name = "bitsandbytes" },

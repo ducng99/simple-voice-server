@@ -7,6 +7,7 @@ import torch
 from transformers import (
     AutoModelForMultimodalLM,
     AutoProcessor,
+    BitsAndBytesConfig,
     TextIteratorStreamer,
 )
 
@@ -24,6 +25,7 @@ class Gemma4(STTModel, LLMModel):
         self._model = AutoModelForMultimodalLM.from_pretrained(
             MODEL_ID,
             dtype=torch.float16,
+            quantization_config=BitsAndBytesConfig(load_in_8bit=True),
             device_map="auto",
         )
         self._model.eval()
@@ -115,8 +117,6 @@ class Gemma4(STTModel, LLMModel):
         params = self.default_params.copy()
         params.update(kwargs)
 
-        self._processor.tokenizer.padding_side = "left"
-
         text = self._processor.apply_chat_template(
             messages,
             tokenize=False,
@@ -131,18 +131,15 @@ class Gemma4(STTModel, LLMModel):
             skip_special_tokens=False,
         )
 
-        generation_kwargs = dict(
-            **inputs,
-            streamer=streamer,
-            max_new_tokens=params.get("max_new_tokens"),
-            temperature=params.get("temperature", 1.0),
-            top_p=params.get("top_p", 0.95),
-            top_k=params.get("top_k", 64),
-            pad_token_id=self._processor.tokenizer.pad_token_id,
-        )
-
         with torch.no_grad():
-            _ = self._model.generate(**generation_kwargs)
+            _ = self._model.generate(
+                **inputs,
+                streamer=streamer,
+                max_new_tokens=params.get("max_new_tokens"),
+                temperature=params.get("temperature", 1.0),
+                top_p=params.get("top_p", 0.95),
+                top_k=params.get("top_k", 64),
+            )
 
         for token_str in streamer:
             yield token_str
