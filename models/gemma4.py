@@ -11,6 +11,7 @@ from transformers import (
     BitsAndBytesConfig,
     TextIteratorStreamer,
 )
+from transformers.audio_utils import load_audio
 
 from models.base import LLMModel, STTModel
 
@@ -44,7 +45,7 @@ class Gemma4(STTModel, LLMModel):
             quantization_config=quantization_config,
         )
         self._model.eval()
-        print("Model ready.")
+        print("Gemma4 Model ready.")
 
     @property
     def default_params(self) -> dict[str, Any]:
@@ -55,21 +56,11 @@ class Gemma4(STTModel, LLMModel):
         }
 
     def transcribe(self, audio_bytes: bytes, language: str = "en") -> str:
-        audio_array, sample_rate = sf.read(io.BytesIO(audio_bytes))
-
-        if audio_array.ndim > 1:
-            audio_array = audio_array.mean(axis=1)
-            audio_array = audio_array[np.newaxis, :]
-        if sample_rate != 16000:
-            import resampy
-
-            audio_array = resampy.resample(audio_array, sample_rate, 16000)
-
         messages = [
             {
                 "role": "user",
                 "content": [
-                    {"type": "audio", "audio": audio_array},
+                    {"type": "audio", "audio": audio_bytes},
                     {
                         "type": "text",
                         "text": "Transcribe the following speech segment in its original language. Follow these specific instructions for formatting the answer:\n* Only output the transcription, with no newlines.\n* When transcribing numbers, write the digits, i.e. write 1.7 and not one point seven, and write 3 instead of three.",

@@ -17,7 +17,7 @@ class CohereSTT(STTModel):
             self.model_id, device_map="auto"
         )
         self._model.eval()
-        print("STT model ready.")
+        print("Cohere STT model ready.")
 
     def transcribe(self, audio_bytes: bytes, language: str = "en") -> str:
         audio_array, sample_rate = sf.read(io.BytesIO(audio_bytes))
