@@ -1,7 +1,7 @@
 from typing import Dict, Optional, Type
 
 from models.cohere_stt import CohereSTT
-from models.gemma_stt import Gemma4
+from models.gemma4 import Gemma4
 from models.kokoro_tts import KokoroTTS
 
 from models.base import LLMModel, STTModel, TTSModel
