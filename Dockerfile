@@ -1,4 +1,6 @@
-FROM python:3.12-slim
+FROM debian:trixie-slim
+ENV UV_LINK_MODE=copy
+
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 WORKDIR /app
 
