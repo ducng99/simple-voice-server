@@ -1,7 +1,7 @@
 import io
 import json
+import os
 import struct
-from os import environ
 from typing import Any, Optional
 
 import soundfile as sf
@@ -208,4 +208,4 @@ def _stream_response(
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run(app, host="0.0.0.0", port=environ.get("PORT", 8000))
+    uvicorn.run(app, host="0.0.0.0", port=int(os.environ.get("PORT", 8000)))

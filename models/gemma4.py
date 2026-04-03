@@ -2,8 +2,7 @@ import io
 from collections.abc import Generator
 from typing import Any
 
-import numpy as np
-import soundfile as sf
+import librosa
 import torch
 from transformers import (
     AutoModelForMultimodalLM,
@@ -11,7 +10,6 @@ from transformers import (
     BitsAndBytesConfig,
     TextIteratorStreamer,
 )
-from transformers.audio_utils import load_audio
 
 from models.base import LLMModel, STTModel
 
@@ -56,11 +54,16 @@ class Gemma4(STTModel, LLMModel):
         }
 
     def transcribe(self, audio_bytes: bytes, language: str = "en") -> str:
+        audio_array, _ = librosa.load(
+            io.BytesIO(audio_bytes),
+            sr=16000,  # Gemma expects 16kHz
+        )
+
         messages = [
             {
                 "role": "user",
                 "content": [
-                    {"type": "audio", "audio": audio_bytes},
+                    {"type": "audio", "audio": audio_array},
                     {
                         "type": "text",
                         "text": "Transcribe the following speech segment in its original language. Follow these specific instructions for formatting the answer:\n* Only output the transcription, with no newlines.\n* When transcribing numbers, write the digits, i.e. write 1.7 and not one point seven, and write 3 instead of three.",
