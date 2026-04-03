@@ -14,16 +14,6 @@ from models.base import LLMModel, STTModel
 
 MODEL_ID = "google/gemma-4-E2B-it"
 
-MODULES_TO_NOT_CONVERT = [
-    "vision_encoder",
-    "audio_encoder",
-    "vision_tower",
-    "audio_tower",
-    "vision_model",
-    "audio_model",
-    "encoder",
-]
-
 
 class Gemma4(STTModel, LLMModel):
     model_id = MODEL_ID
@@ -33,7 +23,7 @@ class Gemma4(STTModel, LLMModel):
         self._processor = AutoProcessor.from_pretrained(MODEL_ID)
         self._model = AutoModelForMultimodalLM.from_pretrained(
             MODEL_ID,
-            dtype="auto",
+            dtype=torch.float16,
             device_map="auto",
         )
         self._model.eval()
@@ -83,9 +73,7 @@ class Gemma4(STTModel, LLMModel):
         )
         parsed = self._processor.parse_response(response)
 
-        if isinstance(parsed, dict):
-            return parsed.get("text", "")
-        return str(parsed)
+        return parsed.get("content", "")
 
     def generate(
         self,
