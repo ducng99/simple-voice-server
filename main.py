@@ -130,9 +130,10 @@ class ChatMessage(BaseModel):
 class ChatCompletionRequest(BaseModel):
     model: str = ""
     messages: list[ChatMessage]
-    temperature: Optional[float] = 0.7
-    top_p: Optional[float] = 0.9
-    max_tokens: Optional[int] = 512
+    temperature: Optional[float] = None
+    top_p: Optional[float] = None
+    top_k: Optional[int] = None
+    max_tokens: Optional[int] = None
     stream: bool = False
 
 
@@ -160,10 +161,10 @@ async def chat_completions(req: ChatCompletionRequest):
 
     response = llm.generate(
         messages,
-        max_new_tokens=max(req.max_tokens or 512, 1),
+        max_new_tokens=req.max_tokens,
         temperature=req.temperature,
         top_p=req.top_p,
-        do_sample=req.temperature > 0,
+        top_k=req.top_k,
     )
 
     return JSONResponse(
@@ -195,10 +196,10 @@ def _stream_response(
 ):
     for token in llm.generate_stream(
         messages,
-        max_new_tokens=max(req.max_tokens or 512, 1),
+        max_new_tokens=req.max_tokens,
         temperature=req.temperature,
         top_p=req.top_p,
-        do_sample=req.temperature > 0,
+        top_k=req.top_k,
     ):
         yield f"data: {json.dumps({'choices': [{'delta': {'content': token}, 'finish_reason': None}]})}\n\n"
     yield "data: [DONE]\n\n"

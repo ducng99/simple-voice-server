@@ -1,13 +1,30 @@
 import io
-from typing import Any, Generator
+from collections.abc import Generator
+from typing import Any
 
+import numpy as np
 import soundfile as sf
 import torch
-from transformers import AutoModelForMultimodalLM, AutoProcessor
+from transformers import (
+    AutoModelForMultimodalLM,
+    AutoProcessor,
+    BitsAndBytesConfig,
+    TextIteratorStreamer,
+)
 
 from models.base import LLMModel, STTModel
 
 MODEL_ID = "google/gemma-4-E2B-it"
+
+MODULES_TO_NOT_CONVERT = [
+    "vision_encoder",
+    "audio_encoder",
+    "vision_tower",
+    "audio_tower",
+    "vision_model",
+    "audio_model",
+    "encoder",
+]
 
 
 class Gemma4(STTModel, LLMModel):
@@ -16,10 +33,15 @@ class Gemma4(STTModel, LLMModel):
     def __init__(self):
         print(f"Loading model {MODEL_ID}...")
         self._processor = AutoProcessor.from_pretrained(MODEL_ID)
+        quantization_config = BitsAndBytesConfig(
+            load_in_4bit=True,
+            modules_to_not_convert=MODULES_TO_NOT_CONVERT,
+        )
         self._model = AutoModelForMultimodalLM.from_pretrained(
             MODEL_ID,
             dtype="auto",
-            device_map="auto",
+            device_map="cpu",
+            quantization_config=quantization_config,
         )
         self._model.eval()
         print("Model ready.")
@@ -27,10 +49,9 @@ class Gemma4(STTModel, LLMModel):
     @property
     def default_params(self) -> dict[str, Any]:
         return {
-            "max_new_tokens": 512,
-            "temperature": 0.7,
-            "top_p": 0.9,
-            "do_sample": True,
+            "temperature": 1.0,
+            "top_p": 0.95,
+            "top_k": 64,
         }
 
     def transcribe(self, audio_bytes: bytes, language: str = "en") -> str:
@@ -38,6 +59,7 @@ class Gemma4(STTModel, LLMModel):
 
         if audio_array.ndim > 1:
             audio_array = audio_array.mean(axis=1)
+            audio_array = audio_array[np.newaxis, :]
         if sample_rate != 16000:
             import resampy
 
@@ -85,29 +107,29 @@ class Gemma4(STTModel, LLMModel):
         params = self.default_params.copy()
         params.update(kwargs)
 
-        inputs = self._processor.apply_chat_template(
+        text = self._processor.apply_chat_template(
             messages,
-            tokenize=True,
-            return_dict=True,
-            return_tensors="pt",
+            tokenize=False,
             add_generation_prompt=True,
-        ).to(self._model.device)
+            enable_thinking=False,
+        )
+        inputs = self._processor(text, return_tensors="pt").to(self._model.device)
         input_len = inputs["input_ids"].shape[-1]
 
         with torch.no_grad():
             outputs = self._model.generate(
                 **inputs,
-                max_new_tokens=params.get("max_new_tokens", 512),
-                temperature=params.get("temperature", 0.7),
-                top_p=params.get("top_p", 0.9),
-                do_sample=params.get("do_sample", True),
+                max_new_tokens=params.get("max_new_tokens"),
+                temperature=params.get("temperature", 1.0),
+                top_p=params.get("top_p", 0.95),
+                top_k=params.get("top_k", 64),
             )
 
         response = self._processor.decode(
             outputs[0][input_len:],
-            skip_special_tokens=True,
+            skip_special_tokens=False,
         )
-        return response.strip()
+        return self._processor.parse_response(response)
 
     def generate_stream(
         self,
@@ -117,44 +139,34 @@ class Gemma4(STTModel, LLMModel):
         params = self.default_params.copy()
         params.update(kwargs)
 
-        inputs = self._processor.apply_chat_template(
+        self._processor.tokenizer.padding_side = "left"
+
+        text = self._processor.apply_chat_template(
             messages,
-            tokenize=True,
-            return_dict=True,
-            return_tensors="pt",
+            tokenize=False,
             add_generation_prompt=True,
-        ).to(self._model.device)
-        input_len = inputs["input_ids"].shape[-1]
+            enable_thinking=False,
+        )
+        inputs = self._processor(text, return_tensors="pt").to(self._model.device)
 
-        max_new_tokens = params.get("max_new_tokens", 512)
-        temperature = params.get("temperature", 0.7)
-        top_p = params.get("top_p", 0.9)
-        do_sample = params.get("do_sample", True)
+        streamer = TextIteratorStreamer(
+            self._processor.tokenizer,
+            skip_prompt=True,
+            skip_special_tokens=False,
+        )
 
-        if not do_sample:
-            temperature = None
-            top_p = None
+        generation_kwargs = dict(
+            **inputs,
+            streamer=streamer,
+            max_new_tokens=params.get("max_new_tokens"),
+            temperature=params.get("temperature", 1.0),
+            top_p=params.get("top_p", 0.95),
+            top_k=params.get("top_k", 64),
+            pad_token_id=self._processor.tokenizer.pad_token_id,
+        )
 
         with torch.no_grad():
-            for output in self._model.generate(
-                **inputs,
-                max_new_tokens=max_new_tokens,
-                temperature=temperature,
-                top_p=top_p,
-                do_sample=do_sample,
-                pad_token_id=self._processor.tokenizer.pad_token_id,
-                eos_token_id=self._processor.tokenizer.eos_token_id,
-                output_scores=True,
-                return_dict_in_generate=True,
-            ):
-                token = output.sequences[0][input_len:]
-                if token.item() == self._processor.tokenizer.eos_token_id:
-                    break
-                if token.item() == self._processor.tokenizer.pad_token_id:
-                    continue
-                token_str = self._processor.tokenizer.decode(
-                    token,
-                    skip_special_tokens=True,
-                )
-                if token_str:
-                    yield token_str
+            _ = self._model.generate(**generation_kwargs)
+
+        for token_str in streamer:
+            yield token_str
