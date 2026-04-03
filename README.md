@@ -1,11 +1,12 @@
 # Voice OpenAI Server
 
-FastAPI server providing OpenAI-compatible STT (speech-to-text) and TTS (text-to-speech) endpoints.
+FastAPI server providing OpenAI-compatible STT, TTS, and Chat endpoints.
 
 ## Features
 
-- **STT**: Transcribe audio files using Cohere or Gemma models
+- **STT**: Transcribe audio files using Cohere or Gemma4 models
 - **TTS**: Generate speech from text using Kokoro models
+- **Chat**: Text generation using Gemma4 (uses same model as STT)
 - OpenAI-compatible API endpoints
 - Supports multiple audio formats (WAV, FLAC, PCM)
 - Automatic model loading and caching
@@ -36,7 +37,7 @@ PORT=3000 uv run python main.py
 GET /v1/models
 ```
 
-Returns available STT and TTS models.
+Returns available STT, TTS, and LLM models.
 
 ### Transcribe Audio (STT)
 
@@ -82,12 +83,39 @@ curl -X POST http://localhost:8000/v1/audio/speech \
   --output speech.wav
 ```
 
+### Chat Completions
+
+```
+POST /v1/chat/completions
+```
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `model` | string | `""` | Model ID (uses first available if empty) |
+| `messages` | array | required | Chat messages `[{role: "user", content: "..."}]` |
+| `temperature` | float | `0.7` | Sampling temperature |
+| `top_p` | float | `0.9` | Nucleus sampling threshold |
+| `max_tokens` | int | `512` | Max tokens to generate |
+| `stream` | bool | `false` | Enable streaming |
+
+Example using curl:
+
+```bash
+curl -X POST http://localhost:8000/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{"messages":[{"role":"user","content":"Hello!"}],"model":"google/gemma-4-E2B-it"}'
+```
+
 ## Available Models
 
 ### STT Models
 
+- **Gemma4**: `google/gemma-4-E2B-it` — Google's multimodal model (also supports chat)
 - **Cohere**: `CohereLabs/cohere-transcribe-03-2026` — Cohere's speech recognition model
-- **Gemma**: `google/gemma-4-E2B-it` — Google's multimodal language model with audio support
+
+### Chat Models
+
+- **Gemma4**: `google/gemma-4-E2B-it` — Uses same model instance as STT
 
 ### TTS Models
 

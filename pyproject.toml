@@ -14,6 +14,7 @@ dependencies = [
     "resampy>=0.4.3",
     "soundfile>=0.13.1",
     "torch==2.10.0",
+    "torchvision>=0.25.0",
     "transformers[sentencepiece,torch]>=5.5.0",
     "uvicorn>=0.42.0",
 ]

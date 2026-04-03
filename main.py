@@ -1,6 +1,8 @@
 import io
+import json
 import struct
 from os import environ
+from typing import Any, Optional
 
 import soundfile as sf
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
@@ -8,8 +10,10 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
 
 from models.registry import (
+    get_llm_model,
     get_stt_model,
     get_tts_model,
+    list_llm_models,
     list_stt_models,
     list_tts_models,
 )
@@ -22,7 +26,12 @@ app = FastAPI()
 
 @app.get("/v1/models")
 async def list_models():
-    return {"data": [{"id": mid} for mid in list_stt_models() + list_tts_models()]}
+    return {
+        "data": [
+            {"id": mid, "object": "model", "created": 0, "owned_by": "local"}
+            for mid in list_stt_models() + list_tts_models() + list_llm_models()
+        ]
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -108,6 +117,91 @@ async def speech(req: SpeechRequest):
 
     buf.seek(0)
     return StreamingResponse(buf, media_type=media_type)
+
+
+# ---------------------------------------------------------------------------
+# Chat – OpenAI-compatible LLM chat
+# ---------------------------------------------------------------------------
+class ChatMessage(BaseModel):
+    role: str
+    content: str
+
+
+class ChatCompletionRequest(BaseModel):
+    model: str = ""
+    messages: list[ChatMessage]
+    temperature: Optional[float] = 0.7
+    top_p: Optional[float] = 0.9
+    max_tokens: Optional[int] = 512
+    stream: bool = False
+
+
+@app.post("/v1/chat/completions")
+async def chat_completions(req: ChatCompletionRequest):
+    if req.model:
+        llm = get_llm_model(req.model)
+        if llm is None:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Unknown LLM model: {req.model!r}. Available: {list_llm_models()}",
+            )
+    else:
+        llm = get_llm_model(list_llm_models()[0])
+        if llm is None:
+            raise HTTPException(status_code=500, detail="No LLM models registered.")
+
+    messages = [msg.model_dump() for msg in req.messages]
+
+    if req.stream:
+        return StreamingResponse(
+            _stream_response(llm, messages, req),
+            media_type="text/event-stream",
+        )
+
+    response = llm.generate(
+        messages,
+        max_new_tokens=max(req.max_tokens or 512, 1),
+        temperature=req.temperature,
+        top_p=req.top_p,
+        do_sample=req.temperature > 0,
+    )
+
+    return JSONResponse(
+        {
+            "id": "chatcmpl-local",
+            "object": "chat.completion",
+            "created": 0,
+            "model": req.model or list_llm_models()[0],
+            "choices": [
+                {
+                    "index": 0,
+                    "message": {"role": "assistant", "content": response},
+                    "finish_reason": "stop",
+                }
+            ],
+            "usage": {
+                "prompt_tokens": 0,
+                "completion_tokens": 0,
+                "total_tokens": 0,
+            },
+        }
+    )
+
+
+def _stream_response(
+    llm: Any,
+    messages: list[dict[str, Any]],
+    req: ChatCompletionRequest,
+):
+    for token in llm.generate_stream(
+        messages,
+        max_new_tokens=max(req.max_tokens or 512, 1),
+        temperature=req.temperature,
+        top_p=req.top_p,
+        do_sample=req.temperature > 0,
+    ):
+        yield f"data: {json.dumps({'choices': [{'delta': {'content': token}, 'finish_reason': None}]})}\n\n"
+    yield "data: [DONE]\n\n"
 
 
 if __name__ == "__main__":

@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from typing import Any, Generator
 
 import numpy as np
 
@@ -39,4 +40,32 @@ class TTSModel(ABC):
     @abstractmethod
     def available_voices(self) -> list[str]:
         """Return list of available voices."""
+        pass
+
+
+class LLMModel(ABC):
+    """Base interface for Large Language Models."""
+
+    @abstractmethod
+    def generate(
+        self,
+        messages: list[dict[str, Any]],
+        **kwargs: Any,
+    ) -> str:
+        """Generate a response from chat messages."""
+        pass
+
+    @abstractmethod
+    def generate_stream(
+        self,
+        messages: list[dict[str, Any]],
+        **kwargs: Any,
+    ) -> Generator[str, None, None]:
+        """Generate a streaming response from chat messages."""
+        pass
+
+    @property
+    @abstractmethod
+    def default_params(self) -> dict[str, Any]:
+        """Return default generation parameters."""
         pass
