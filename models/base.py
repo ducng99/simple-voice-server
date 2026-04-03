@@ -1,6 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Generator, Optional
-import io
+
 import numpy as np
 
 
@@ -16,12 +15,6 @@ class STTModel(ABC):
         """Transcribe audio bytes to text."""
         pass
 
-    @property
-    @abstractmethod
-    def model_id(self) -> str:
-        """Return the model identifier."""
-        pass
-
 
 class TTSModel(ABC):
     """Base interface for Text-to-Speech models."""
@@ -34,12 +27,6 @@ class TTSModel(ABC):
         speed: float = 1.0,
     ) -> tuple[np.ndarray, int]:
         """Synthesize text to audio array and sample rate."""
-        pass
-
-    @property
-    @abstractmethod
-    def model_id(self) -> str:
-        """Return the model identifier."""
         pass
 
     @property

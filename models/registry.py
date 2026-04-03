@@ -1,4 +1,9 @@
-from typing import Optional, Type, Dict
+from typing import Dict, Optional, Type
+
+from models.cohere_stt import CohereSTT
+from models.gemma_stt import GemmaSTT
+from models.kokoro_tts import KokoroTTS
+
 from models.base import STTModel, TTSModel
 
 _stt_registry: Dict[str, Type[STTModel]] = {}
@@ -45,9 +50,6 @@ def list_tts_models() -> list[str]:
 
 
 # Register known models
-from models.cohere_stt import CohereSTT
-from models.gemma_stt import GemmaSTT
-from models.kokoro_tts import KokoroTTS
 
 register_stt(CohereSTT.model_id, CohereSTT)
 register_stt(GemmaSTT.model_id, GemmaSTT)

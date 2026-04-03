@@ -8,15 +8,13 @@ SAMPLE_RATE = 24000
 
 
 class KokoroTTS(TTSModel):
+    model_id = MODEL_ID
+
     def __init__(self, lang_code: str = "a", voice: str = "af_heart"):
         print(f"Loading TTS model {MODEL_ID}...")
         self._pipeline = KPipeline(lang_code=lang_code, repo_id=MODEL_ID)
         self._default_voice = voice
         print("TTS model ready.")
-
-    @property
-    def model_id(self) -> str:
-        return MODEL_ID
 
     @property
     def sample_rate(self) -> int:

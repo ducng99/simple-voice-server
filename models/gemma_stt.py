@@ -10,6 +10,8 @@ MODEL_ID = "google/gemma-4-E2B-it"
 
 
 class GemmaSTT(STTModel):
+    model_id = MODEL_ID
+
     def __init__(self):
         print(f"Loading STT model {MODEL_ID}...")
         self._processor = AutoProcessor.from_pretrained(MODEL_ID)
@@ -20,10 +22,6 @@ class GemmaSTT(STTModel):
         )
         self._model.eval()
         print("STT model ready.")
-
-    @property
-    def model_id(self) -> str:
-        return MODEL_ID
 
     def transcribe(self, audio_bytes: bytes, language: str = "en") -> str:
         audio_array, sample_rate = sf.read(io.BytesIO(audio_bytes))

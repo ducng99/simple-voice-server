@@ -1,28 +1,23 @@
 import io
 
-import numpy as np
 import soundfile as sf
 import torch
 from transformers import AutoProcessor, CohereAsrForConditionalGeneration
 
 from models.base import STTModel
 
-MODEL_ID = "CohereLabs/cohere-transcribe-03-2026"
-
 
 class CohereSTT(STTModel):
+    model_id = "CohereLabs/cohere-transcribe-03-2026"
+
     def __init__(self):
-        print(f"Loading STT model {MODEL_ID}...")
-        self._processor = AutoProcessor.from_pretrained(MODEL_ID)
+        print(f"Loading STT model {self.model_id}...")
+        self._processor = AutoProcessor.from_pretrained(self.model_id)
         self._model = CohereAsrForConditionalGeneration.from_pretrained(
-            MODEL_ID, device_map="auto"
+            self.model_id, device_map="auto"
         )
         self._model.eval()
         print("STT model ready.")
-
-    @property
-    def model_id(self) -> str:
-        return MODEL_ID
 
     def transcribe(self, audio_bytes: bytes, language: str = "en") -> str:
         audio_array, sample_rate = sf.read(io.BytesIO(audio_bytes))
