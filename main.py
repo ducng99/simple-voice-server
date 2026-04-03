@@ -122,9 +122,16 @@ async def speech(req: SpeechRequest):
 # ---------------------------------------------------------------------------
 # Chat – OpenAI-compatible LLM chat
 # ---------------------------------------------------------------------------
+class ChatContentPart(BaseModel):
+    type: str
+    text: Optional[str] = None
+    image_url: Optional[dict[str, Any]] = None
+    input_audio: Optional[dict[str, Any]] = None
+
+
 class ChatMessage(BaseModel):
     role: str
-    content: str
+    content: str | list[ChatContentPart]
 
 
 class ChatCompletionRequest(BaseModel):
@@ -135,6 +142,35 @@ class ChatCompletionRequest(BaseModel):
     top_k: Optional[int] = None
     max_tokens: Optional[int] = None
     stream: bool = False
+
+
+def _convert_content(
+    content: "str | list[ChatContentPart]",
+) -> str | list[dict[str, Any]]:
+    if isinstance(content, str):
+        return content
+
+    converted = []
+    for part in content:
+        part_dict = part.model_dump()
+        part_type = part_dict.get("type")
+        if part_type == "text":
+            converted.append({"type": "text", "text": part_dict.get("text", "")})
+        elif part_type == "image":
+            image_url = part_dict.get("image_url", {})
+            if url := image_url.get("url"):
+                converted.append({"type": "image", "url": url})
+        elif part_type == "audio":
+            input_audio = part_dict.get("input_audio", {})
+            if url := input_audio.get("url"):
+                converted.append({"type": "audio", "audio": url})
+            elif data := input_audio.get("data"):
+                fmt = input_audio.get("format", "wav")
+                mime = f"audio/{fmt}" if fmt else "audio/wav"
+                converted.append(
+                    {"type": "audio", "audio": f"data:{mime};base64,{data}"}
+                )
+    return converted
 
 
 @app.post("/v1/chat/completions")
@@ -151,7 +187,13 @@ async def chat_completions(req: ChatCompletionRequest):
         if llm is None:
             raise HTTPException(status_code=500, detail="No LLM models registered.")
 
-    messages = [msg.model_dump() for msg in req.messages]
+    messages = [
+        {
+            **msg.model_dump(),
+            "content": _convert_content(msg.content),
+        }
+        for msg in req.messages
+    ]
 
     if req.stream:
         return StreamingResponse(
