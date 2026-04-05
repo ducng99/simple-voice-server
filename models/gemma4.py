@@ -119,6 +119,7 @@ class Gemma4(STTModel, LLMModel):
             messages,
             tokenize=False,
             add_generation_prompt=True,
+            return_dict=True,
             return_tensors="pt",
             enable_thinking=False,
         ).to(self._model.device)
@@ -134,9 +135,9 @@ class Gemma4(STTModel, LLMModel):
                 **inputs,
                 streamer=streamer,
                 max_new_tokens=params.get("max_new_tokens"),
-                temperature=params.get("temperature", 1.0),
-                top_p=params.get("top_p", 0.95),
-                top_k=params.get("top_k", 64),
+                temperature=params.get("temperature"),
+                top_p=params.get("top_p"),
+                top_k=params.get("top_k"),
             )
 
         for token_str in streamer:
