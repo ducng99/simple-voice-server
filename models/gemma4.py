@@ -115,13 +115,13 @@ class Gemma4(STTModel, LLMModel):
         params = self.default_params.copy()
         params.update(kwargs)
 
-        text = self._processor.apply_chat_template(
+        inputs = self._processor.apply_chat_template(
             messages,
             tokenize=False,
             add_generation_prompt=True,
+            return_tensors="pt",
             enable_thinking=False,
-        )
-        inputs = self._processor(text, return_tensors="pt").to(self._model.device)
+        ).to(self._model.device)
 
         streamer = TextIteratorStreamer(
             self._processor.tokenizer,

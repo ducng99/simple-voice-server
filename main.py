@@ -2,6 +2,8 @@ import io
 import json
 import os
 import struct
+import time
+import uuid
 from typing import Any, Optional
 
 import soundfile as sf
@@ -125,8 +127,8 @@ async def speech(req: SpeechRequest):
 class ChatContentPart(BaseModel):
     type: str
     text: Optional[str] = None
-    image_url: Optional[dict[str, Any]] = None
-    input_audio: Optional[dict[str, Any]] = None
+    image_url: Optional[dict[str, str]] = None
+    input_audio: Optional[dict[str, str]] = None
 
 
 class ChatMessage(BaseModel):
@@ -141,80 +143,60 @@ class ChatCompletionRequest(BaseModel):
     top_p: Optional[float] = None
     top_k: Optional[int] = None
     max_tokens: Optional[int] = None
+    max_completion_tokens: Optional[int] = None
     stream: bool = False
 
 
 def _convert_content(
-    content: "str | list[ChatContentPart]",
+    content: str | list[ChatContentPart],
 ) -> str | list[dict[str, Any]]:
     if isinstance(content, str):
         return content
 
-    converted = []
+    parts = []
     for part in content:
-        part_dict = part.model_dump()
-        part_type = part_dict.get("type")
-        if part_type == "text":
-            converted.append({"type": "text", "text": part_dict.get("text", "")})
-        elif part_type == "image":
-            image_url = part_dict.get("image_url", {})
-            if url := image_url.get("url"):
-                converted.append({"type": "image", "url": url})
-        elif part_type == "audio":
-            input_audio = part_dict.get("input_audio", {})
-            if url := input_audio.get("url"):
-                converted.append({"type": "audio", "audio": url})
-            elif data := input_audio.get("data"):
-                fmt = input_audio.get("format", "wav")
-                mime = f"audio/{fmt}" if fmt else "audio/wav"
-                converted.append(
-                    {"type": "audio", "audio": f"data:{mime};base64,{data}"}
+        if part.type == "text" and part.text is not None:
+            parts.append({"type": "text", "text": part.text})
+        elif part.type == "image_url" and part.image_url is not None:
+            parts.append({"type": "image", "url": part.image_url.get("url", "")})
+        elif part.type == "input_audio" and part.input_audio is not None:
+            audio_data = part.input_audio.get("data", "")
+            audio_format = part.input_audio.get("format", "wav")
+            if audio_data.startswith("data:"):
+                parts.append({"type": "audio", "audio": audio_data})
+            else:
+                mime = f"audio/{audio_format}"
+                parts.append(
+                    {"type": "audio", "audio": f"data:{mime};base64,{audio_data}"}
                 )
-    return converted
+    return parts
 
 
-@app.post("/v1/chat/completions")
-async def chat_completions(req: ChatCompletionRequest):
-    if req.model:
-        llm = get_llm_model(req.model)
-        if llm is None:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Unknown LLM model: {req.model!r}. Available: {list_llm_models()}",
-            )
-    else:
-        llm = get_llm_model(list_llm_models()[0])
-        if llm is None:
-            raise HTTPException(status_code=500, detail="No LLM models registered.")
+def _build_non_stream_response(
+    llm: Any,
+    messages: list[dict[str, Any]],
+    req: ChatCompletionRequest,
+    model_name: str,
+) -> JSONResponse:
+    gen_kwargs = {
+        k: v
+        for k, v in {
+            "max_new_tokens": req.max_tokens or req.max_completion_tokens,
+            "temperature": req.temperature,
+            "top_p": req.top_p,
+            "top_k": req.top_k,
+        }.items()
+        if v is not None
+    }
 
-    messages = [
-        {
-            **msg.model_dump(),
-            "content": _convert_content(msg.content),
-        }
-        for msg in req.messages
-    ]
-
-    if req.stream:
-        return StreamingResponse(
-            _stream_response(llm, messages, req),
-            media_type="text/event-stream",
-        )
-
-    response = llm.generate(
-        messages,
-        max_new_tokens=req.max_tokens,
-        temperature=req.temperature,
-        top_p=req.top_p,
-        top_k=req.top_k,
-    )
+    response = llm.generate(messages, **gen_kwargs)
 
     return JSONResponse(
         {
-            "id": "chatcmpl-local",
+            "id": f"chatcmpl-{uuid.uuid4().hex[:12]}",
             "object": "chat.completion",
-            "created": 0,
-            "model": req.model or list_llm_models()[0],
+            "created": int(time.time()),
+            "model": model_name,
             "choices": [
                 {
                     "index": 0,
@@ -231,20 +213,100 @@ async def chat_completions(req: ChatCompletionRequest):
     )
 
 
-def _stream_response(
+async def _stream_response(
     llm: Any,
     messages: list[dict[str, Any]],
     req: ChatCompletionRequest,
+    model_name: str,
 ):
-    for token in llm.generate_stream(
-        messages,
-        max_new_tokens=req.max_tokens,
-        temperature=req.temperature,
-        top_p=req.top_p,
-        top_k=req.top_k,
-    ):
-        yield f"data: {json.dumps({'choices': [{'delta': {'content': token}, 'finish_reason': None}]})}\n\n"
+    chat_id = f"chatcmpl-{uuid.uuid4().hex[:12]}"
+
+    gen_kwargs = {
+        k: v
+        for k, v in {
+            "max_new_tokens": req.max_tokens or req.max_completion_tokens,
+            "temperature": req.temperature,
+            "top_p": req.top_p,
+            "top_k": req.top_k,
+        }.items()
+        if v is not None
+    }
+
+    for token in llm.generate_stream(messages, **gen_kwargs):
+        chunk = {
+            "id": chat_id,
+            "object": "chat.completion.chunk",
+            "created": int(time.time()),
+            "model": model_name,
+            "choices": [
+                {
+                    "index": 0,
+                    "delta": {"content": token},
+                    "finish_reason": None,
+                }
+            ],
+        }
+        yield f"data: {json.dumps(chunk)}\n\n"
+
+    final_chunk = {
+        "id": chat_id,
+        "object": "chat.completion.chunk",
+        "created": int(time.time()),
+        "model": model_name,
+        "choices": [
+            {
+                "index": 0,
+                "delta": {},
+                "finish_reason": "stop",
+            }
+        ],
+    }
+    yield f"data: {json.dumps(final_chunk)}\n\n"
     yield "data: [DONE]\n\n"
+
+
+@app.post("/v1/chat/completions")
+async def chat_completions(req: ChatCompletionRequest):
+    if not req.messages:
+        raise HTTPException(
+            status_code=400,
+            detail="messages cannot be empty",
+        )
+
+    if req.model:
+        llm = get_llm_model(req.model)
+        if llm is None:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Unknown LLM model: {req.model!r}. Available: {list_llm_models()}",
+            )
+        model_name = req.model
+    else:
+        all_models = list_llm_models()
+        if not all_models:
+            raise HTTPException(status_code=500, detail="No LLM models registered.")
+        model_name = all_models[0]
+        llm = get_llm_model(model_name)
+        if llm is None:
+            raise HTTPException(status_code=500, detail="No LLM models registered.")
+
+    messages = [
+        {"role": msg.role, "content": _convert_content(msg.content)}
+        for msg in req.messages
+    ]
+
+    if req.stream:
+        return StreamingResponse(
+            _stream_response(llm, messages, req, model_name),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+                "X-Accel-Buffering": "no",
+            },
+        )
+
+    return _build_non_stream_response(llm, messages, req, model_name)
 
 
 if __name__ == "__main__":
