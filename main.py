@@ -150,6 +150,7 @@ class ChatCompletionRequest(BaseModel):
     max_completion_tokens: Optional[int] = None
     stream: bool = False
     stream_options: Optional[StreamOptions] = None
+    tools: Optional[list[dict[str, Any]]] = None
 
 
 def _convert_content(
@@ -190,11 +191,23 @@ def _build_non_stream_response(
             "temperature": req.temperature,
             "top_p": req.top_p,
             "top_k": req.top_k,
+            "tools": req.tools,
         }.items()
         if v is not None
     }
 
     response = llm.generate(messages, **gen_kwargs)
+
+    message: dict[str, Any] = {"role": "assistant"}
+    finish_reason = "stop"
+
+    if isinstance(response, dict):
+        message["content"] = response.get("content")
+        if response.get("tool_calls"):
+            message["tool_calls"] = response["tool_calls"]
+            finish_reason = "tool_calls"
+    else:
+        message["content"] = response
 
     return JSONResponse(
         {
@@ -206,8 +219,8 @@ def _build_non_stream_response(
             "choices": [
                 {
                     "index": 0,
-                    "message": {"role": "assistant", "content": response},
-                    "finish_reason": "stop",
+                    "message": message,
+                    "finish_reason": finish_reason,
                 }
             ],
             "usage": {
@@ -235,6 +248,7 @@ async def _stream_response(
             "temperature": req.temperature,
             "top_p": req.top_p,
             "top_k": req.top_k,
+            "tools": req.tools,
         }.items()
         if v is not None
     }
@@ -257,25 +271,61 @@ async def _stream_response(
         role_chunk["usage"] = None
     yield f"data: {json.dumps(role_chunk)}\n\n"
 
+    has_tool_calls = False
     for token in llm.generate_stream(messages, **gen_kwargs):
-        chunk = {
-            "id": chat_id,
-            "object": "chat.completion.chunk",
-            "created": int(time.time()),
-            "model": model_name,
-            "service_tier": "default",
-            "choices": [
-                {
-                    "index": 0,
-                    "delta": {"content": token},
-                    "finish_reason": None,
-                }
-            ],
-        }
-        if include_usage:
-            chunk["usage"] = None
-        yield f"data: {json.dumps(chunk)}\n\n"
+        if isinstance(token, dict) and "tool_calls" in token:
+            has_tool_calls = True
+            tool_calls = token["tool_calls"]
+            delta_tool_calls = []
+            for i, tc in enumerate(tool_calls):
+                delta_tool_calls.append(
+                    {
+                        "index": i,
+                        "id": tc["id"],
+                        "type": tc["type"],
+                        "function": {
+                            "name": tc["function"]["name"],
+                            "arguments": tc["function"]["arguments"],
+                        },
+                    }
+                )
+            chunk = {
+                "id": chat_id,
+                "object": "chat.completion.chunk",
+                "created": int(time.time()),
+                "model": model_name,
+                "service_tier": "default",
+                "choices": [
+                    {
+                        "index": 0,
+                        "delta": {"tool_calls": delta_tool_calls},
+                        "finish_reason": None,
+                    }
+                ],
+            }
+            if include_usage:
+                chunk["usage"] = None
+            yield f"data: {json.dumps(chunk)}\n\n"
+        else:
+            chunk = {
+                "id": chat_id,
+                "object": "chat.completion.chunk",
+                "created": int(time.time()),
+                "model": model_name,
+                "service_tier": "default",
+                "choices": [
+                    {
+                        "index": 0,
+                        "delta": {"content": token},
+                        "finish_reason": None,
+                    }
+                ],
+            }
+            if include_usage:
+                chunk["usage"] = None
+            yield f"data: {json.dumps(chunk)}\n\n"
 
+    final_finish_reason = "tool_calls" if has_tool_calls else "stop"
     final_chunk = {
         "id": chat_id,
         "object": "chat.completion.chunk",
@@ -286,7 +336,7 @@ async def _stream_response(
             {
                 "index": 0,
                 "delta": {},
-                "finish_reason": "stop",
+                "finish_reason": final_finish_reason,
             }
         ],
     }

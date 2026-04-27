@@ -51,7 +51,7 @@ class LLMModel(ABC):
         self,
         messages: list[dict[str, Any]],
         **kwargs: Any,
-    ) -> str:
+    ) -> str | dict[str, Any]:
         """Generate a response from chat messages."""
         pass
 
@@ -60,7 +60,7 @@ class LLMModel(ABC):
         self,
         messages: list[dict[str, Any]],
         **kwargs: Any,
-    ) -> Generator[str, None, None]:
+    ) -> Generator[str | dict[str, Any], None, None]:
         """Generate a streaming response from chat messages."""
         pass
 
