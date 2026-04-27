@@ -136,6 +136,10 @@ class ChatMessage(BaseModel):
     content: str | list[ChatContentPart]
 
 
+class StreamOptions(BaseModel):
+    include_usage: bool = False
+
+
 class ChatCompletionRequest(BaseModel):
     model: str = ""
     messages: list[ChatMessage]
@@ -145,6 +149,7 @@ class ChatCompletionRequest(BaseModel):
     max_tokens: Optional[int] = None
     max_completion_tokens: Optional[int] = None
     stream: bool = False
+    stream_options: Optional[StreamOptions] = None
 
 
 def _convert_content(
@@ -197,6 +202,7 @@ def _build_non_stream_response(
             "object": "chat.completion",
             "created": int(time.time()),
             "model": model_name,
+            "service_tier": "default",
             "choices": [
                 {
                     "index": 0,
@@ -220,6 +226,7 @@ async def _stream_response(
     model_name: str,
 ):
     chat_id = f"chatcmpl-{uuid.uuid4().hex[:12]}"
+    include_usage = req.stream_options is not None and req.stream_options.include_usage
 
     gen_kwargs = {
         k: v
@@ -232,12 +239,31 @@ async def _stream_response(
         if v is not None
     }
 
+    role_chunk = {
+        "id": chat_id,
+        "object": "chat.completion.chunk",
+        "created": int(time.time()),
+        "model": model_name,
+        "service_tier": "default",
+        "choices": [
+            {
+                "index": 0,
+                "delta": {"role": "assistant"},
+                "finish_reason": None,
+            }
+        ],
+    }
+    if include_usage:
+        role_chunk["usage"] = None
+    yield f"data: {json.dumps(role_chunk)}\n\n"
+
     for token in llm.generate_stream(messages, **gen_kwargs):
         chunk = {
             "id": chat_id,
             "object": "chat.completion.chunk",
             "created": int(time.time()),
             "model": model_name,
+            "service_tier": "default",
             "choices": [
                 {
                     "index": 0,
@@ -246,6 +272,8 @@ async def _stream_response(
                 }
             ],
         }
+        if include_usage:
+            chunk["usage"] = None
         yield f"data: {json.dumps(chunk)}\n\n"
 
     final_chunk = {
@@ -253,6 +281,7 @@ async def _stream_response(
         "object": "chat.completion.chunk",
         "created": int(time.time()),
         "model": model_name,
+        "service_tier": "default",
         "choices": [
             {
                 "index": 0,
@@ -261,7 +290,26 @@ async def _stream_response(
             }
         ],
     }
+    if include_usage:
+        final_chunk["usage"] = None
     yield f"data: {json.dumps(final_chunk)}\n\n"
+
+    if include_usage:
+        usage_chunk = {
+            "id": chat_id,
+            "object": "chat.completion.chunk",
+            "created": int(time.time()),
+            "model": model_name,
+            "service_tier": "default",
+            "choices": [],
+            "usage": {
+                "prompt_tokens": 0,
+                "completion_tokens": 0,
+                "total_tokens": 0,
+            },
+        }
+        yield f"data: {json.dumps(usage_chunk)}\n\n"
+
     yield "data: [DONE]\n\n"
 
 
