@@ -89,6 +89,21 @@ class Gemma4(STTModel, LLMModel):
             add_generation_prompt=True,
             enable_thinking=False,
         )
+        print(
+            f"[DEBUG Gemma4 generate] apply_chat_template returned: {type(text).__name__} = {text!r}"
+        )
+        if text is None:
+            print(
+                f"[DEBUG Gemma4 generate] Falling back to tokenizer.apply_chat_template with messages={messages}"
+            )
+            text = self._processor.tokenizer.apply_chat_template(
+                messages,
+                tokenize=False,
+                add_generation_prompt=True,
+            )
+            print(
+                f"[DEBUG Gemma4 generate] tokenizer fallback returned: {type(text).__name__} = {text!r}"
+            )
         inputs = self._processor(text, return_tensors="pt").to(self._model.device)
         input_len = inputs["input_ids"].shape[-1]
 
@@ -121,6 +136,21 @@ class Gemma4(STTModel, LLMModel):
             add_generation_prompt=True,
             enable_thinking=False,
         )
+        print(
+            f"[DEBUG Gemma4 generate_stream] apply_chat_template returned: {type(text).__name__} = {text!r}"
+        )
+        if text is None:
+            print(
+                f"[DEBUG Gemma4 generate_stream] Falling back to tokenizer.apply_chat_template with messages={messages}"
+            )
+            text = self._processor.tokenizer.apply_chat_template(
+                messages,
+                tokenize=False,
+                add_generation_prompt=True,
+            )
+            print(
+                f"[DEBUG Gemma4 generate_stream] tokenizer fallback returned: {type(text).__name__} = {text!r}"
+            )
         inputs = self._processor(text, return_tensors="pt").to(self._model.device)
 
         streamer = TextIteratorStreamer(

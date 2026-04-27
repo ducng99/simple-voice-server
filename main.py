@@ -343,6 +343,15 @@ async def chat_completions(req: ChatCompletionRequest):
         for msg in req.messages
     ]
 
+    # DEBUG
+    import json as _json
+
+    print("[DEBUG] chat_completions request:")
+    print("  model:", req.model)
+    print("  stream:", req.stream)
+    print("  messages:", _json.dumps(messages, ensure_ascii=False))
+    # END DEBUG
+
     if req.stream:
         return StreamingResponse(
             _stream_response(llm, messages, req, model_name),
