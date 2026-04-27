@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-FastAPI server providing OpenAI-compatible STT, TTS, and Chat endpoints. Uses `uv` for dependency management, Python 3.12.
+FastAPI server providing OpenAI-compatible STT and TTS endpoints. Uses `uv` for dependency management, Python 3.12.
 
 ## Commands
 
@@ -68,7 +68,7 @@ import numpy as np
 import soundfile as sf
 from fastapi import FastAPI
 
-from models.base import STTModel
+from models.base import STTModel, TTSModel
 ```
 Prefer `from x import y` over `import x` for used symbols. Lazy-import heavy deps (e.g. `resampy`) inside functions to reduce startup cost.
 
@@ -88,7 +88,7 @@ Prefer `from x import y` over `import x` for used symbols. Lazy-import heavy dep
 
 ### Naming
 
-- Model classes: descriptive noun or model name, e.g. `CohereSTT`, `KokoroTTS`, `Gemma4`
+- Model classes: descriptive noun or model name, e.g. `CohereSTT`, `KokoroTTS`
 - Module-level model identifiers: `MODEL_ID = "org/name"` (string constant)
 - Private registries: leading underscore, e.g. `_stt_registry`
 
@@ -101,7 +101,7 @@ Prefer `from x import y` over `import x` for used symbols. Lazy-import heavy dep
 
 ### Architecture
 
-- `models/base.py` — abstract `STTModel` / `TTSModel` / `LLMModel` interfaces
+- `models/base.py` — abstract `STTModel` / `TTSModel` interfaces
 - `models/registry.py` — singleton registry with lazy instantiation; auto-registers on import
 - `models/*.py` — concrete implementations, one per model
 - `main.py` — FastAPI routes, Pydantic request models, audio I/O
