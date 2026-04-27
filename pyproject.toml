@@ -1,6 +1,6 @@
 [project]
 name = "voice-openai-server"
-version = "0.1.22"
+version = "0.1.23"
 description = "A simple STT & TTS OpenAI-compatible API server"
 readme = "README.md"
 requires-python = ">=3.10,<3.13"
