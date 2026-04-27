@@ -221,7 +221,7 @@ class Gemma4(STTModel, LLMModel):
 
         messages = self._normalize_messages(messages)
         template_kwargs = dict(
-            messages=messages,
+            conversation=messages,
             tokenize=True,
             return_dict=True,
             return_tensors="pt",
@@ -267,7 +267,7 @@ class Gemma4(STTModel, LLMModel):
 
         messages = self._normalize_messages(messages)
         template_kwargs = dict(
-            messages=messages,
+            conversation=messages,
             tokenize=True,
             return_dict=True,
             return_tensors="pt",
