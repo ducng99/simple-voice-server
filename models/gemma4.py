@@ -83,25 +83,20 @@ class Gemma4(STTModel, LLMModel):
         params = self.default_params.copy()
         params.update(kwargs)
 
-        text = self._processor.apply_chat_template(
+        inputs = self._processor.apply_chat_template(
             messages,
-            tokenize=False,
+            tokenize=True,
+            return_dict=True,
+            return_tensors="pt",
             add_generation_prompt=True,
             enable_thinking=False,
-        )
-        if text is None:
-            text = self._processor.tokenizer.apply_chat_template(
-                messages,
-                tokenize=False,
-                add_generation_prompt=True,
-            )
-        inputs = self._processor(text=text, return_tensors="pt").to(self._model.device)
+        ).to(self._model.device)
         input_len = inputs["input_ids"].shape[-1]
 
         with torch.no_grad():
             outputs = self._model.generate(
                 **inputs,
-                max_new_tokens=params.get("max_new_tokens"),
+                max_new_tokens=params.get("max_new_tokens") or 131072,
                 temperature=params.get("temperature", 1.0),
                 top_p=params.get("top_p", 0.95),
                 top_k=params.get("top_k", 64),
@@ -121,13 +116,14 @@ class Gemma4(STTModel, LLMModel):
         params = self.default_params.copy()
         params.update(kwargs)
 
-        text = self._processor.apply_chat_template(
+        inputs = self._processor.apply_chat_template(
             messages,
-            tokenize=False,
+            tokenize=True,
+            return_dict=True,
+            return_tensors="pt",
             add_generation_prompt=True,
             enable_thinking=False,
-        )
-        inputs = self._processor(text=text, return_tensors="pt").to(self._model.device)
+        ).to(self._model.device)
 
         streamer = TextIteratorStreamer(
             self._processor.tokenizer,
@@ -139,7 +135,7 @@ class Gemma4(STTModel, LLMModel):
             _ = self._model.generate(
                 **inputs,
                 streamer=streamer,
-                max_new_tokens=params.get("max_new_tokens"),
+                max_new_tokens=params.get("max_new_tokens") or 131072,
                 temperature=params.get("temperature"),
                 top_p=params.get("top_p"),
                 top_k=params.get("top_k"),
