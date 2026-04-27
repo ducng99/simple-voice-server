@@ -164,7 +164,7 @@ class Gemma4(STTModel, LLMModel):
         streamer = TextIteratorStreamer(
             self._processor.tokenizer,
             skip_prompt=True,
-            skip_special_tokens=False,
+            skip_special_tokens=True,
         )
 
         with torch.no_grad():
