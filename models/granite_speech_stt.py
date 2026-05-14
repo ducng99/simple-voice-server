@@ -18,7 +18,7 @@ class GraniteSpeechSTT(STTModel):
         self._model = AutoModelForSpeechSeq2Seq.from_pretrained(
             self.model_id,
             device_map=str(self._device),
-            torch_dtype=torch.float16,
+            dtype=torch.float16,
         )
         self._model.eval()
         print("Granite Speech STT model ready.")
