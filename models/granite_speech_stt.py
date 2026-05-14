@@ -12,7 +12,7 @@ class GraniteSpeechSTT(STTModel):
 
     def __init__(self):
         print(f"Loading STT model {self.model_id}...")
-        self._device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self._device = torch.device("cpu")
         self._processor = AutoProcessor.from_pretrained(self.model_id)
         self._tokenizer = self._processor.tokenizer
         self._model = AutoModelForSpeechSeq2Seq.from_pretrained(
