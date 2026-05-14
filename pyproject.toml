@@ -37,3 +37,6 @@ torch = [
 torchvision = [
   { index = "pytorch-cpu" },
 ]
+torchaudio = [
+  { index = "pytorch-cpu" },
+]
