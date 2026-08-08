@@ -1,8 +1,8 @@
 from typing import Dict, Optional, Type
 
 from models.cohere_stt import CohereSTT
-from models.granite_speech_stt import GraniteSpeechSTT
 from models.kokoro_tts import KokoroTTS
+from models.qwen3_asr_stt import Qwen3ASRSTT
 
 from models.base import STTModel, TTSModel
 
@@ -50,5 +50,5 @@ def list_tts_models() -> list[str]:
 
 
 register_stt(CohereSTT.model_id, CohereSTT)
-register_stt(GraniteSpeechSTT.model_id, GraniteSpeechSTT)
+register_stt(Qwen3ASRSTT.model_id, Qwen3ASRSTT)
 register_tts(KokoroTTS.model_id, KokoroTTS)

@@ -1,6 +1,6 @@
 [project]
 name = "voice-openai-server"
-version = "0.1.35"
+version = "0.1.36"
 description = "A simple STT & TTS OpenAI-compatible API server"
 readme = "README.md"
 requires-python = ">=3.10,<3.13"
@@ -16,7 +16,7 @@ dependencies = [
     "torch==2.10.0",
     "torchaudio>=2.11.0",
     "torchvision>=0.25.0",
-    "transformers[sentencepiece,torch]>=5.6.0",
+    "transformers[sentencepiece,torch]>=5.13.0",
     "uvicorn>=0.42.0",
 ]
 
