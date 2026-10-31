@@ -1,9 +1,9 @@
-FROM ghcr.io/astral-sh/uv:alpine
+FROM ghcr.io/astral-sh/uv:debian
 ENV UV_LINK_MODE=copy
 
 WORKDIR /app
 
-RUN apk add --no-cache espeak-ng
+RUN apt-get update && apt-get install -y espeak-ng
 
 COPY . .
 
