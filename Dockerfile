@@ -1,10 +1,9 @@
-FROM debian:trixie-slim
+FROM ghcr.io/astral-sh/uv:alpine
 ENV UV_LINK_MODE=copy
 
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y espeak-ng
+RUN apk add --no-cache espeak-ng
 
 COPY . .
 
