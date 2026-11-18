@@ -1,9 +1,11 @@
 from typing import Dict, Optional, Type
 
 from models.cohere_stt import CohereSTT
+from models.fluid_speech_stt import FluidSpeechSTT
 from models.kokoro_tts import KokoroTTS
 from models.qwen3_asr_stt import Qwen3ASRSTT
 from models.underdog_bark_stt import UnderdogBarkSTT
+from models.underdog_woof_tts import UnderdogWoofTTS
 
 from models.base import STTModel, TTSModel
 
@@ -51,6 +53,8 @@ def list_tts_models() -> list[str]:
 
 
 register_stt(CohereSTT.model_id, CohereSTT)
+register_stt(FluidSpeechSTT.model_id, FluidSpeechSTT)
 register_stt(Qwen3ASRSTT.model_id, Qwen3ASRSTT)
 register_stt(UnderdogBarkSTT.model_id, UnderdogBarkSTT)
 register_tts(KokoroTTS.model_id, KokoroTTS)
+register_tts(UnderdogWoofTTS.model_id, UnderdogWoofTTS)

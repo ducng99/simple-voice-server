@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.11,<3.13"
 dependencies = [
     "fastapi",
+    "huggingface-hub",
     "kokoro>=0.9.2",
     "librosa",
     "numpy",
@@ -24,6 +25,9 @@ dependencies = [
 dev = [
     "ruff>=0.15.9",
 ]
+
+[tool.ruff]
+extend-exclude = ["models/underdog_woof"]
 
 [[tool.uv.index]]
 name = "pytorch-cpu"

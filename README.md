@@ -4,7 +4,7 @@ FastAPI server providing OpenAI-compatible STT and TTS endpoints.
 
 ## Features
 
-- **STT**: Transcribe audio files using Cohere models
+- **STT**: Transcribe audio files using multiple speech recognition models
 - **TTS**: Generate speech from text using Kokoro models
 - OpenAI-compatible API endpoints
 - Supports multiple audio formats (WAV, FLAC, PCM)
@@ -87,10 +87,14 @@ curl -X POST http://localhost:8000/v1/audio/speech \
 ### STT Models
 
 - **Cohere**: `CohereLabs/cohere-transcribe-03-2026` — Cohere's speech recognition model
+- **Fluid Speech**: `FluidVoice-Labs/fluid-speech-pro` — Fluid Voice speech recognition model
+- **Qwen3 ASR**: `Qwen/Qwen3-ASR-1.7B-hf` — Qwen's multilingual speech recognition model
+- **Underdog Bark**: `ConwayResearch/Underdog-Bark-3.0-Pro` — Parakeet-based speech recognition model
 
 ### TTS Models
 
 - **Kokoro**: `hexgrad/Kokoro-82M` — High-quality text-to-speech model
+- **Underdog Woof**: `ConwayResearch/Underdog-Woof` — Small CPU-only English text-to-speech model with `juno` and `mira` voices
 
 ## Development
 
