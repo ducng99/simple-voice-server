@@ -27,7 +27,7 @@ class FluidSpeechSTT(STTModel):
 
             audio_array = resampy.resample(audio_array, sample_rate, 16000)
 
-        result = self._asr(audio_array, sampling_rate=16000)
+        result = self._asr({"array": audio_array, "sampling_rate": 16000})
         if isinstance(result, list):
             result = result[0]
         return result["text"].strip()
